@@ -1,0 +1,399 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id          String   @id @default(cuid())
+  email       String   @unique
+  password    String
+  name        String
+  age         Int
+  gender      Gender
+  country     String
+  city        String
+  bio         String   @db.Text
+  lookingFor  LookingFor
+  verified    Boolean  @default(false)
+  online      Boolean  @default(false)
+  lastSeen    DateTime @default(now())
+  premium     Boolean  @default(false)
+  videoIntro  String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Profile photos
+  photos      Photo[]
+
+  // User interests
+  interests   Interest[]
+
+  // Matches where this user is involved
+  matchesAsUser1 Match[] @relation("User1Matches")
+  matchesAsUser2 Match[] @relation("User2Matches")
+
+  // Messages sent by this user
+  sentMessages     Message[] @relation("SentMessages")
+  receivedMessages Message[] @relation("ReceivedMessages")
+
+  // User preferences
+  preferences UserPreference?
+
+  // Notifications for this user
+  notifications Notification[]
+
+  // Ads watched by this user
+  adWatches AdWatch[]
+
+  // Meeting services used by this user
+  meetingServices MeetingService[]
+
+  // Community posts by this user
+  communityPosts CommunityPost[]
+
+  // Community comments by this user
+  communityComments CommunityComment[]
+
+  // Community votes by this user
+  communityVotes CommunityVote[]
+
+  // Social media connections
+  socialConnections SocialConnection[]
+
+  // Social media posts shared by this user
+  socialPosts SocialPost[]
+
+  @@map("users")
+}
+
+model Photo {
+  id        String   @id @default(cuid())
+  userId    String
+  url       String
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+  
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("photos")
+}
+
+model Interest {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  category  String?
+  createdAt DateTime @default(now())
+
+  // Users who have this interest
+  users     User[]
+
+  @@map("interests")
+}
+
+model Match {
+  id          String   @id @default(cuid())
+  user1Id     String
+  user2Id     String
+  matchedAt   DateTime @default(now())
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user1       User     @relation("User1Matches", fields: [user1Id], references: [id], onDelete: Cascade)
+  user2       User     @relation("User2Matches", fields: [user2Id], references: [id], onDelete: Cascade)
+
+  // Messages in this match
+  messages    Message[]
+
+  @@unique([user1Id, user2Id])
+  @@map("matches")
+}
+
+model Message {
+  id          String      @id @default(cuid())
+  matchId     String
+  senderId    String
+  receiverId  String
+  content     String      @db.Text
+  type        MessageType @default(TEXT)
+  mediaUrl    String?
+  read        Boolean     @default(false)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  match       Match       @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  sender      User        @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver    User        @relation("ReceivedMessages", fields: [receiverId], references: [id], onDelete: Cascade)
+
+  @@map("messages")
+}
+
+model UserPreference {
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  ageRangeMin Int      @default(18)
+  ageRangeMax Int      @default(50)
+  distance    Int      @default(100)
+  countries   String   @db.Text // JSON array of countries
+  interests   String   @db.Text // JSON array of interest IDs
+  lookingFor  LookingFor
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_preferences")
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  type      NotificationType
+  title     String
+  message   String
+  read      Boolean          @default(false)
+  data      String?          @db.Text // JSON data
+  createdAt DateTime         @default(now())
+
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
+}
+
+model Ad {
+  id             String       @id @default(cuid())
+  title          String
+  description    String       @db.Text
+  imageUrl       String
+  videoUrl       String?
+  link           String
+  targetAudience TargetAudience
+  active         Boolean      @default(true)
+  startDate      DateTime
+  endDate        DateTime?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  // Ad watches
+  watches        AdWatch[]
+
+  @@map("ads")
+}
+
+model AdWatch {
+  id        String   @id @default(cuid())
+  userId    String
+  adId      String
+  watchedAt DateTime @default(now())
+  duration  Int      // seconds watched
+  completed Boolean  @default(false)
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ad        Ad       @relation(fields: [adId], references: [id], onDelete: Cascade)
+
+  @@map("ad_watches")
+}
+
+model MeetingService {
+  id          String   @id @default(cuid())
+  title       String
+  description String   @db.Text
+  price       Decimal  @db.Decimal(10, 2)
+  location    String
+  duration    String
+  features    String   @db.Text // JSON array of features
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Users who used this service
+  users       User[]
+
+  @@map("meeting_services")
+}
+
+// Community Models
+model CommunityCategory {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String   @db.Text
+  icon        String?
+  color       String?
+  targetAudience CommunityTargetAudience @default(ALL)
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Posts in this category
+  posts       CommunityPost[]
+
+  @@map("community_categories")
+}
+
+model CommunityPost {
+  id          String   @id @default(cuid())
+  userId      String
+  categoryId  String
+  title       String
+  content     String   @db.Text
+  imageUrl    String?
+  videoUrl    String?
+  tags        String   @db.Text // JSON array of tags
+  upvotes     Int      @default(0)
+  downvotes   Int      @default(0)
+  views       Int      @default(0)
+  isAnonymous Boolean  @default(false)
+  isSticky    Boolean  @default(false)
+  isLocked    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category    CommunityCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  // Comments on this post
+  comments    CommunityComment[]
+
+  // Votes on this post
+  votes       CommunityVote[]
+
+  @@map("community_posts")
+}
+
+model CommunityComment {
+  id          String   @id @default(cuid())
+  postId      String
+  userId      String
+  parentId    String?  // For nested comments
+  content     String   @db.Text
+  upvotes     Int      @default(0)
+  downvotes   Int      @default(0)
+  isAnonymous Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  post        CommunityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parent      CommunityComment? @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies     CommunityComment[] @relation("CommentReplies")
+
+  @@map("community_comments")
+}
+
+model CommunityVote {
+  id          String   @id @default(cuid())
+  userId      String
+  postId      String?
+  commentId   String?
+  voteType    VoteType
+  createdAt   DateTime @default(now())
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post        CommunityPost? @relation(fields: [postId], references: [id], onDelete: Cascade)
+  comment     CommunityComment? @relation(fields: [commentId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, postId])
+  @@unique([userId, commentId])
+  @@map("community_votes")
+}
+
+// Social Media Integration Models
+model SocialConnection {
+  id          String   @id @default(cuid())
+  userId      String
+  platform    SocialPlatform
+  accessToken String   @db.Text
+  refreshToken String? @db.Text
+  platformUserId String
+  platformUsername String
+  profileUrl  String?
+  permissions String   @db.Text // JSON array of granted permissions
+  isActive    Boolean  @default(true)
+  lastSync    DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, platform])
+  @@map("social_connections")
+}
+
+model SocialPost {
+  id          String   @id @default(cuid())
+  userId      String
+  platform    SocialPlatform
+  platformPostId String
+  content     String   @db.Text
+  imageUrl    String?
+  videoUrl    String?
+  likes       Int      @default(0)
+  comments    Int      @default(0)
+  shares      Int      @default(0)
+  postUrl     String
+  postedAt    DateTime
+  createdAt   DateTime @default(now())
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("social_posts")
+}
+
+// Enums
+enum Gender {
+  MALE
+  FEMALE
+}
+
+enum LookingFor {
+  SERIOUS
+  CASUAL
+  FRIENDSHIP
+}
+
+enum MessageType {
+  TEXT
+  IMAGE
+  VIDEO
+  AUDIO
+}
+
+enum NotificationType {
+  MATCH
+  MESSAGE
+  LIKE
+  VISIT
+  AD
+  COMMUNITY
+}
+
+enum TargetAudience {
+  MEN
+  WOMEN
+  ALL
+}
+
+enum CommunityTargetAudience {
+  MEN
+  WOMEN
+  ALL
+}
+
+enum VoteType {
+  UPVOTE
+  DOWNVOTE
+}
+
+enum SocialPlatform {
+  FACEBOOK
+  INSTAGRAM
+  TWITTER
+  TIKTOK
+}
